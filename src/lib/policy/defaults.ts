@@ -1,0 +1,110 @@
+/** Written to config/policies.yaml the first time Clutch starts without one. */
+export const DEFAULT_FILE = `# ─────────────────────────────────────────────────────────────────────────────
+#  Clutch policies — business, financial and compliance rules, as data.
+#
+#  Edit this file in any editor and save: Clutch reloads it within a second.
+#  No code change, no redeploy. The same rules are editable at /app/policies.
+#  A broken edit is rejected with line numbers; the last good version keeps running.
+#
+#  id        unique, e.g. FIN-004
+#  category  business | financial | compliance
+#  severity  low | medium | high | critical
+#  scope     account  → audited across every customer
+#            deal     → checked on every offer, quote and live call (deal desk)
+#  when      a formula:   arr >= 25L && daysToNotice <= 14 && !hasChampion
+#            or a list:   all: [ { field: arr, op: gte, value: 25L } ]   (any: = OR)
+#  message   shown on the exception; {{field}} inserts the value
+#  action    account → flag | notify | { type: start_play, play: champion }
+#            deal    → flag | require_approval | block
+#
+#  Money takes 50k, 10L, 1.2Cr. Percent fields are plain numbers (12 = 12%).
+#  Every field is listed in the app under Policies → Fields.
+# ─────────────────────────────────────────────────────────────────────────────
+
+revision: 1
+rules:
+  - id: BIZ-001
+    name: Notice window closing, no champion
+    category: business
+    severity: critical
+    scope: account
+    when:
+      all:
+        - { field: daysToNotice, op: between, value: [0, 45] }
+        - { field: hasChampion, op: is_false }
+    message: Notice deadline in {{daysToNotice}} and nobody on their side owns the renewal
+    action: { type: start_play, play: champion }
+
+  - id: BIZ-002
+    name: Big renewal without an exec sponsor
+    category: business
+    severity: high
+    scope: account
+    when: arr >= 30L && daysToRenewal <= 120 && !hasExecSponsor && !renewed
+    message: "{{arr}} renewing in {{daysToRenewal}} with no executive sponsor"
+    action: flag
+
+  - id: BIZ-003
+    name: Paying for seats they don't use
+    category: business
+    severity: medium
+    scope: account
+    when: utilization < 56 && seats >= 30
+    message: Only {{utilization}} of {{seats}} seats active — right-size before they ask
+    action: { type: start_play, play: rightsize }
+
+  - id: FIN-001
+    name: Failed payment on a renewing account
+    category: financial
+    severity: high
+    scope: account
+    when: failedInvoices > 0 && daysToRenewal <= 120
+    message: "{{failedInvoices}} failed payment(s) · {{overdueAmount}} outstanding"
+    action: notify
+
+  - id: FIN-002
+    name: Deep discount on a small account
+    category: financial
+    severity: high
+    scope: deal
+    when: discountPct > 8 && arr < 15L
+    message: "{{discountPct}} off on a {{arr}} account needs a manager"
+    action: require_approval
+
+  - id: FIN-003
+    name: No stacking a free month on a discount
+    category: financial
+    severity: medium
+    scope: deal
+    when: contains(extras, "free-month") && discountPct > 5
+    message: Free month on top of {{discountPct}} off — pick one
+    action: block
+
+  - id: COMP-001
+    name: Auto-renew uplift needs written notice
+    category: compliance
+    severity: medium
+    scope: account
+    when: autoRenew && upliftPct > 6 && daysToRenewal <= 90 && !renewed
+    message: "{{upliftPct}} uplift on an auto-renewing contract — the price-change notice must go out before the window closes ({{daysToNotice}})"
+    action: flag
+
+  - id: COMP-002
+    name: Regulated customer with a dead contact
+    category: compliance
+    severity: high
+    scope: account
+    when: industry in ["Healthcare", "Financial services", "Insurance", "Pharma"] && (championBounced || bouncedContacts > 0)
+    message: "{{industry}} customer with a bounced contact — DPA and breach notices must reach a named person"
+    action: notify
+
+  - id: COMP-003
+    name: Competitor named in a support ticket
+    category: compliance
+    severity: low
+    scope: account
+    enabled: false
+    when: competitorMentioned
+    message: "{{competitor}} came up in a ticket — log it for the win/loss review"
+    action: flag
+`;

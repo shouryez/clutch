@@ -1,0 +1,11 @@
+import { seedWorld } from "../src/lib/seed";
+import { computeHealth } from "../src/lib/risk";
+import { validate, leverage } from "../src/lib/dealdesk";
+const w = seedWorld();
+const rows = w.map((a) => ({ a, h: computeHealth(a) }));
+for (const { a, h } of rows.slice(0, 8)) console.log(a.name.padEnd(22), String(h.risk).padStart(3), h.tier.padEnd(8), "up", String(h.upsell).padStart(3), h.cause.padEnd(11), "notice", h.daysToNotice, "|", h.why);
+const tiers = rows.reduce((m, r) => ((m[r.h.tier] = (m[r.h.tier] ?? 0) + 1), m), {} as Record<string, number>);
+console.log("tiers", tiers, "renewing<=120d", rows.filter((r) => r.h.daysToRenewal <= 120).length);
+const nw = w[0];
+console.log(validate(nw, { discountPct: 0.25, termMonths: 12 }), validate(nw, { discountPct: 0.12, termMonths: 24 }), validate(nw, { discountPct: 0.12, termMonths: 12 }));
+console.log(leverage(nw, 7000));

@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  devIndicators: false,
+  // the dev log file under .next/ retriggers the watcher when the project lives in OneDrive
+  experimental: { mcpServer: false },
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {
